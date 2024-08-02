@@ -4,6 +4,7 @@
 # Import packages
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 import streamlit as st
 
 # %% Tab title
@@ -34,12 +35,51 @@ blindInform = st.checkbox(
 blindInformColumn = 'Name' if blindInform else 'Option ID'
 
 # %% Import and cache data
+
+    # Google sheet API access setup
+apiKey = 'AIzaSyD5Sem3ZTjAVClEu8KtFWWjkDdU5oowGtE'
+googleSheetId = '1pdPZG75JMgBwZGzcfNpDuo0xaOX2je7Z5QVElsx3hyY'
+googleSheetRange = 'People example - merged tables'
+url = f'https://sheets.googleapis.com/v4/spreadsheets/{googleSheetId}/values/{googleSheetRange}?key={apiKey}'
+
+    # Function to fetch data
+def fetch_data():
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return data
+    else:
+        st.error(f"Error fetching data: {response.status_code}")
+        return {}
+
+    # Cache data
 @st.cache_data
 
+    # Function to load data
+# def load_data():
+#     googleDriveURL = "https://docs.google.com/spreadsheets/d/1pdPZG75JMgBwZGzcfNpDuo0xaOX2je7Z5QVElsx3hyY/edit?usp=sharing"
+#     csvImport = googleDriveURL.replace('/edit?usp=sharing', '/export?format=csv')
+#     return pd.read_csv(csvImport)
+
 def load_data():
-    googleDriveURL = 'https://docs.google.com/spreadsheets/d/1pdPZG75JMgBwZGzcfNpDuo0xaOX2je7Z5QVElsx3hyY/edit?usp=sharing'
-    csvImport = googleDriveURL.replace('/edit?usp=sharing', '/export?format=csv')
-    return pd.read_csv(csvImport)
+    data = fetch_data()
+    if 'values' in data and len(data['values']) > 1:
+        # Convert JSON data to DataFrame
+        df = pd.DataFrame(data['values'][1:], columns = data['values'][0])
+        
+        # Convert relevant columns to numeric
+        numeric_columns = [
+            'Score / Rating', 'Score Avg', 'Ranking Avg ALL', 
+            'Ranking Sum ALL', 'Ranking Sum AI', 'Ranking Count ALL',
+            'Ranking Count AI', 'Ranking Avg ALL', 'Ranking Avg AI'
+        ]
+        for col in numeric_columns:
+            df[col] = pd.to_numeric(df[col], errors = 'coerce')
+        
+        return df
+    else:
+        # Handle empty or missing data
+        return pd.DataFrame(columns = ['No data available'])
 
     # Load data
 SQCMdf = load_data()
